@@ -58,14 +58,17 @@
     .controls button{flex:0 0 auto; width:auto; display:inline-block;}
 
     /* Zone graphe */
-.graph-wrapper {
-  display: flex;
-  align-items: stretch;   /* le canvas prend toute la hauteur */
-  justify-content: center;
-  gap: 20px;
-  margin-bottom: 40px;
-  height: 1000px;          /* hauteur fixée comme le canvas */
+.graph-wrapper{
+  display:flex;
+  align-items:stretch;
+  justify-content:center;
+  gap:20px;
+  margin-bottom:20px;
+
+  /* hauteur écran – header + barres */
+  height: calc(100vh - 160px);
 }
+
 
 .graph-side {
   display: flex;
@@ -73,34 +76,30 @@
   justify-content: center; /* centre verticalement si le menu est plus petit */
 }
 
-#myChart {
-  width: 100%;
-  aspect-ratio: 16/9;
-  max-height: 1000px;
-  background: #fff;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px var(--shadow);
-  display: block;
-  margin: 0 auto;
+#myChart{
+  width:100%;
+  height:100% !important;   /* 🔑 prend toute la hauteur dispo */
+  background:#fff;
+  border-radius:8px;
+  box-shadow:0 4px 12px var(--shadow);
+  display:block;
 }
 
-.y-columns {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
 
-  /* hauteur adaptative */
-  max-height: 1000px;      /* ne jamais dépasser 1000px */
-  height: auto;            /* prend la taille du contenu si < 1000px */
-
-  overflow-y: auto;        /* ajoute une barre de défilement si trop long */
-  border: 1px solid #ddd;
-  padding: 6px;
-  border-radius: 6px;
-  background: var(--panel);
-  scrollbar-width: thin;
-  width: 220px;
+.y-columns{
+  display:flex;
+  flex-direction:column;
+  gap:4px;
+  height:100%;
+  max-height:100%;
+  overflow-y:auto;
+  border:1px solid #ddd;
+  padding:6px;
+  border-radius:6px;
+  background:var(--panel);
+  width:220px;
 }
+
 
 
 
@@ -344,6 +343,13 @@
   to { transform: rotate(360deg); }
 }
 
+
+@keyframes pulse {
+  0% { opacity: 0.6; }
+  50% { opacity: 1; }
+  100% { opacity: 0.6; }
+}
+
     
 
   </style>
@@ -398,7 +404,7 @@
 
   <!-- Zone centrale : graphe -->
   <div style="flex:1; display:flex; flex-direction:column; align-items:center;">
-    <canvas id="myChart" width="1400" height="1000"></canvas>
+    <canvas id="myChart"></canvas>
     <input type="color" id="colorPicker" style="display:none;" />
     <div id="dateLabels" style="text-align:center; margin-top:8px; font-weight:bold; color:var(--danger);"></div>
   </div>
@@ -448,11 +454,38 @@
 
 
   let baseFileName="", baseFileId="", headers=[], timeField="", baseDateYYYYMMDD="";
-  let colors=[]; let themeMenuTimer;
-  let loadedDays=new Set(); let saMeta=null;
-  let customColors = {}; // mémorise les couleurs choisies par label
-  let initialMin = null, initialMax = null;
+let themeMenuTimer;
+let loadedDays=new Set(); let saMeta=null;
 
+let customColors = {}; // mémorise les couleurs choisies par label
+
+// 🎨 Palette FIXE pour les séries (indépendante du thème)
+const SERIES_COLORS = [
+  "#800020", // rouge bordeaux
+  "#e53935", // rouge vif
+  "#f57c00", // orange foncé
+  "#ff9800", // orange vif
+
+  "#2196f3", // bleu
+  "#4caf50", // vert
+  "#9c27b0", // violet
+  "#00bcd4", // cyan
+  "#8bc34a", // vert clair
+  "#607d8b", // gris bleuté
+  "#795548", // marron
+  "#3f51b5"  // indigo
+];
+
+
+// Couleur stable par nom de courbe (clé = nom colonne)
+let seriesColorMap = {};
+
+let initialMin = null, initialMax = null;
+
+
+let avgState = "idle";  // idle | first | second
+let avgStart = null;
+   let avgMode = false; 
 
 
   // Z3
@@ -460,8 +493,7 @@
   let z3Visible = false;
     let notesVisible = true;
 
-    let avgMode = false;
-let avgStart = null;
+
 
 
 
@@ -469,19 +501,9 @@ let avgStart = null;
 function applyThemeVars(vars){
   const r=document.documentElement;
   Object.entries(vars).forEach(([k,v])=>r.style.setProperty(k,v));
-  colors = buildPalette();
-  if(chart){
-    chart.data.datasets.forEach((ds,i)=>{
-      const baseLabel = ds.label.replace(" (lissé)", "");
-      const saved = customColors[baseLabel];
-      const c = saved || colors[i % colors.length];
-      ds.borderColor = c;
-      ds.backgroundColor = c;
-      ds.pointBackgroundColor = c;
-      ds.pointBorderColor = c;
-    });
-    chart.update('none');
-  }
+// ⚠️ Le changement de thème ne recolorie plus les courbes
+if (chart) chart.update('none');
+
 }
 
   
@@ -501,7 +523,14 @@ function applyThemeVars(vars){
   function closeThemeMenu(){document.getElementById("themeMenu").style.display="none";clearTimeout(themeMenuTimer);}
   function getCSSVar(v){return getComputedStyle(document.documentElement).getPropertyValue(v).trim();}
   function hexToRgb(hex){hex=hex.replace('#','');if(hex.length===3){hex=hex.split('').map(h=>h+h).join('');}const n=parseInt(hex,16);return {r:(n>>16)&255,g:(n>>8)&255,b:n&255};}
-  function buildPalette(){const a=getCSSVar('--accent'),d=getCSSVar('--danger');return [a,d,"#3380ff","#4caf50","#8e44ad","#ff33a6","#33cccc","#ffc300"];}
+  function buildPalette(){
+  return [
+    "#ff7043", "#2196f3", "#4caf50", "#9c27b0",
+    "#ffc300", "#00bcd4", "#e91e63", "#795548",
+    "#607d8b", "#8bc34a", "#ff9800", "#3f51b5"
+  ];
+}
+
 
   /* ===================== SPINNER + ERROR ===================== */
   function showSpinner(){document.getElementById('spinner').style.display='block';}
@@ -550,6 +579,30 @@ function colorFromAuthor(name){
   return palette[h % palette.length];
 }
 
+function resetAvgCycle() {
+  avgMode = false;
+  avgState = "idle";
+  avgStart = null;
+  highlightAvgBtn(false);
+}
+
+
+
+function highlightAvgBtn(active) {
+  const b = document.getElementById("avgModeBtn");
+  if (active) {
+    b.style.background = "red";
+    b.style.animation = "pulse 0.7s infinite";
+  } else {
+    b.style.background = getCSSVar("--accent");
+    b.style.animation = "";
+  }
+}
+
+
+
+
+    
 
   /* ===================== FETCH CSV ===================== */
 // 🔒 Version sécurisée — plus de clé API exposée
@@ -846,11 +899,21 @@ if (parasiteFilterEnabled) {
       // valeurs affichées
       if (smooth) pts = movingAverage(pts, 10);
 
-const baseLabel = yCol; // la "clé" toujours sans (lissé)
+const baseLabel = yCol;
+
 const savedColor = customColors[baseLabel];
-const c = savedColor || colors[i % colors.length];
+
+// couleur par défaut stable par label
+if (!seriesColorMap[baseLabel]) {
+  const idx = Object.keys(seriesColorMap).length % SERIES_COLORS.length;
+  seriesColorMap[baseLabel] = SERIES_COLORS[idx];
+}
+
+const c = savedColor || seriesColorMap[baseLabel];
+
 
 return {
+  id: yCol,
   label: baseLabel + (smooth ? " (lissé)" : ""),
   data: pts,
   borderColor: c,
@@ -879,7 +942,10 @@ return {
 
       for(let d=start.getTime(); d<x.max; d+=oneDay){
         const from=x.getPixelForValue(d), to=x.getPixelForValue(d+oneDay);
-        ctx.fillStyle=toggle? (getCSSVar('--accent-muted')||'rgba(255,112,67,0.12)') : 'rgba(0,0,0,0.02)';
+        ctx.fillStyle = toggle
+  ? 'rgba(255,112,67,0.06)'   // 👈 bande jour très légère
+  : '#ffffff';               // 👈 on ne touche pas au blanc
+
         ctx.fillRect(from, chartArea.top, to-from, chartArea.bottom-chartArea.top);
         toggle=!toggle;
       }
@@ -1018,60 +1084,100 @@ function setZoomSuspended(suspended){
 const notesPlugin = {
   id: "notesPlugin",
   afterDatasetsDraw(chart) {
-    if (!notesVisible || !notesData.length) return;
+   if (!notesVisible || !notesData.length) return;
+
+
 
     const ctx = chart.ctx;
     const xScale = chart.scales.x;
     const yScale = chart.scales.y;
+
     if (!xScale || !yScale) return;
 
     chart.$noteHitZones = [];
     ctx.save();
-    ctx.font = "12px sans-serif";
+    ctx.font = "11px sans-serif";
     ctx.textBaseline = "top";
 
     for (const n of notesData) {
       if (n.status !== "active") continue;
       if (n.type === "avg") continue;
 
-      const px = xScale.getPixelForValue(n.x);
-      const py = yScale.getPixelForValue(n.y);
-      if (!Number.isFinite(px) || !Number.isFinite(py)) continue;
+      const x = xScale.getPixelForValue(n.x);
+      const y = yScale.getPixelForValue(n.y);
+      if (!Number.isFinite(x) || !Number.isFinite(y)) continue;
 
+      // MULTI-LIGNES
       const lines = String(n.note || "").split(/\r?\n/);
+      const lh = 14;
       const padX = 8;
       const padY = 6;
-      const lineH = 15;
 
-      let wMax = 0;
+      let textW = 0;
       for (const l of lines) {
         const w = ctx.measureText(l).width;
-        if (w > wMax) wMax = w;
+        if (w > textW) textW = w;
       }
 
-      const boxW = wMax + padX * 2;
-      const boxH = lineH * lines.length + padY * 2;
+      const boxW = textW + padX * 2;
+      const boxH = lines.length * lh + padY * 2;
 
-      const bx = px + 6;
-      const by = py - boxH - 6;
+      const rx = x + 6;
+      const ry = y - boxH - 8;
 
-      // FOND = couleur note
-      ctx.fillStyle = n.color || "#FF7043";
+
+
+// 🔹 Trait + point d'ancrage
+const ax = x, ay = y;
+const bx = rx; 
+const by = ry + boxH * 0.75;
+
+ctx.strokeStyle = n.color || "#ff7043";
+ctx.lineWidth = 1;
+ctx.beginPath();
+ctx.moveTo(ax, ay);
+ctx.lineTo(bx, by);
+ctx.stroke();
+
+// Point rond sur la courbe
+ctx.fillStyle = n.color || "#ff7043";
+ctx.beginPath();
+ctx.arc(ax, ay, 3.5, 0, Math.PI * 2);
+ctx.fill();
+
+// Petit contour blanc pour détacher du fond/courbe
+ctx.strokeStyle = "#ffffff";
+ctx.lineWidth = 2;
+ctx.beginPath();
+ctx.arc(ax, ay, 3.5, 0, Math.PI * 2);
+ctx.stroke();
+
+
+      
+      // fond couleur complète
+      ctx.fillStyle = n.color || "#ff7043";
       ctx.beginPath();
-      ctx.roundRect(bx, by, boxW, boxH, 6);
+      ctx.roundRect(rx, ry, boxW, boxH, 6);
       ctx.fill();
 
-      ctx.fillStyle = "#fff";
-      for (let i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], bx + padX, by + padY + i * lineH);
-      }
+// 🔹 Texte centré horizontalement et verticalement
+ctx.fillStyle = "#fff";
+ctx.textAlign = "center";
+ctx.textBaseline = "middle";
 
+for (let i = 0; i < lines.length; i++) {
+  const lineY = ry + boxH / 2 + (i - (lines.length - 1) / 2) * lh;
+  ctx.fillText(lines[i], rx + boxW / 2, lineY);
+}
+
+
+      // ZONE CLIQUABLE POUR EDIT
       chart.$noteHitZones.push({
         note: n,
-        x1: bx,
-        x2: bx + boxW,
-        y1: by,
-        y2: by + boxH
+        x1: rx,
+        x2: rx + boxW,
+        y1: ry,
+        y2: ry + boxH
       });
     }
 
@@ -1080,11 +1186,12 @@ const notesPlugin = {
 };
 
 
-
 const avgPlugin = {
   id: "avgPlugin",
   afterDatasetsDraw(chart) {
-    if (!notesVisible || !notesData.length) return;
+     
+ if (!notesData.length) return;
+
 
     const ctx = chart.ctx;
     const xScale = chart.scales.x;
@@ -1114,28 +1221,42 @@ const avgPlugin = {
       ctx.stroke();
 
       // texte
-      const text = `AVG ${n.avg.toFixed(2)}`;
-      const w = ctx.measureText(text).width + 12;
-      const h = 20;
-      const rx = midX - w / 2;
-      const ry = y - 28;
+// Texte centré
+const text = `Valeur moyenne : ${n.avg.toFixed(1)}`;
+ctx.font = "13px sans-serif";
 
-      ctx.fillStyle = n.color || "#0aa6e8";
-      ctx.beginPath();
-      ctx.roundRect(rx, ry, w, h, 6);
-      ctx.fill();
+// Mesure largeur texte
+const textW = ctx.measureText(text).width;
 
-      ctx.fillStyle = "#fff";
-      ctx.fillText(text, midX, ry + h / 2);
+// Taille du cadre
+const padX = 10;
+const padY = 6;
+const boxW = textW + padX * 2;
+const boxH = 22 + padY * 2;
+
+// Rectangle
+const rx = midX - boxW / 2;
+const ry = y - boxH / 2;
+
+ctx.fillStyle = n.color;
+ctx.fillRect(rx, ry, boxW, boxH);
+
+// Texte centré
+ctx.fillStyle = "#fff";
+ctx.textAlign = "center";
+ctx.textBaseline = "middle";
+ctx.fillText(text, midX, ry + boxH / 2);
+
 
       // ZONE CLIQUABLE
-      chart.$avgHitZones.push({
-        note: n,
-        x1: rx,
-        x2: rx + w,
-        y1: ry,
-        y2: ry + h
-      });
+chart.$avgHitZones.push({
+  note: n,
+  x1: rx,
+  x2: rx + boxW,
+  y1: ry,
+  y2: ry + boxH
+});
+
     }
     ctx.restore();
   }
@@ -1224,7 +1345,14 @@ if (!isNaN(dt.getTime())) {
   }
 
  function drawChart(){
-  if(!csvData.length||!timeField||!currentY.length) return;
+    // 🧹 Empêche la duplication des événements sur le canvas
+  const oldCanvas = document.getElementById("myChart");
+  if (oldCanvas) {
+    const newCanvas = oldCanvas.cloneNode(true); // clone sans événements
+    oldCanvas.parentNode.replaceChild(newCanvas, oldCanvas);
+  }
+
+  // 🧠 Maintenant on repart proprement sur ce nouveau canvas
   const ctx=document.getElementById('myChart').getContext('2d');
 
   const allX=csvData.map(r=>r.__sortKey).filter(v=>Number.isFinite(v));
@@ -1255,29 +1383,38 @@ if (!isNaN(dt.getTime())) {
       interaction:{mode:'nearest',axis:'x',intersect:false},
       plugins:{
         legend:{
-          position:'top',
-          labels:{
-            usePointStyle:true,
-            pointStyle:'rect',
-            color:getCSSVar('--text')
-          },
-          onClick:(e,legendItem)=>{
-            const datasetIndex = legendItem.datasetIndex;
-            const ds = chart.data.datasets[datasetIndex];
-            const baseLabel = ds.label.replace(" (lissé)", "");
-            const picker = document.getElementById('colorPicker');
-            picker.oninput = (ev)=>{
-              const newColor = ev.target.value;
-              customColors[baseLabel] = newColor;
-              ds.borderColor = newColor;
-              ds.backgroundColor = newColor;
-              ds.pointBackgroundColor = newColor;
-              ds.pointBorderColor = newColor;
-              chart.update('none');
-            };
-            picker.click();
-          }
-        },
+  position:'top',
+  labels:{
+    usePointStyle:true,
+    pointStyle:'rect',
+    color:getCSSVar('--text')
+  },
+  onClick:(e,legendItem)=>{
+    const datasetIndex = legendItem.datasetIndex;
+    const ds = chart.data.datasets[datasetIndex];
+
+    // ✅ clé stable pour mémoriser la couleur
+    const baseLabel = ds.label.replace(" (lissé)", "");
+
+    const picker = document.getElementById('colorPicker');
+    picker.oninput = (ev)=>{
+      const newColor = ev.target.value;
+
+      // mémorisation
+      customColors[baseLabel] = newColor;
+
+      // application
+      ds.borderColor = newColor;
+      ds.backgroundColor = newColor;
+      ds.pointBackgroundColor = newColor;
+      ds.pointBorderColor = newColor;
+
+      chart.update('none');
+    };
+    picker.click();
+  }
+},
+
         datalabels:{display:false},
         zoom:{
           zoom:{
@@ -1362,141 +1499,276 @@ canvas.addEventListener('wheel', async (e)=>{
     chart.$z3Mouse = {x,y};
     chart.update('none');
   });
+
+// === SURVOL NOTES : curseur main ===
+canvas.addEventListener("mousemove", (ev) => {
+  const rect = canvas.getBoundingClientRect();
+  const x = ev.clientX - rect.left;
+  const y = ev.clientY - rect.top;
+  const zones = chart.$noteHitZones || [];
+
+  let over = false;
+  for (const z of zones) {
+    if (x >= z.x1 && x <= z.x2 && y >= z.y1 && y <= z.y2) {
+      over = true;
+      break;
+    }
+  }
+  chart.canvas.style.cursor = over ? "pointer" : "default";
+});
+
+
+
+   
   canvas.addEventListener('mouseleave', ()=>{
     chart.$z3Mouse = null;
     chart.update('none');
   });
 
-// === Gestion clic sur une note existante ===
+
+// === CLIC SUR UNE NOTE EXISTANTE ===
 canvas.addEventListener("click", (ev) => {
-  if (avgMode) return;
-  if (!notesData.length) return;
+    // 🚫 Ne pas interférer si on est en mode ajout de note
+  if (chart.$noteMode) return;
+  if (!chart) return;
+  const zones = chart.$noteHitZones || [];
+  if (!zones.length) return;
 
   const rect = canvas.getBoundingClientRect();
-  const xClick = ev.clientX - rect.left;
-  const yClick = ev.clientY - rect.top;
+  const x = ev.clientX - rect.left;
+  const y = ev.clientY - rect.top;
 
-  // 1️⃣ clic sur label moyenne
-  for (const z of chart.$avgHitZones || []) {
-    if (xClick >= z.x1 && xClick <= z.x2 && yClick >= z.y1 && yClick <= z.y2) {
+  for (const z of zones) {
+    if (x >= z.x1 && x <= z.x2 && y >= z.y1 && y <= z.y2) {
       showNotePopup(z.note);
-      return;
-    }
-  }
-
-  // 2️⃣ clic sur bulle note
-  for (const z of chart.$noteHitZones || []) {
-    if (xClick >= z.x1 && xClick <= z.x2 && yClick >= z.y1 && yClick <= z.y2) {
-      showNotePopup(z.note);
-      return;
+      ev.stopPropagation();
+      ev.preventDefault();
+      return; // 🔥 stop tout (empêche zoom/pan)
     }
   }
 });
-
-
-
-// ========== DRAG NOTE ==========
-canvas.addEventListener("mousedown", ev => {
-  for (const z of chart.$noteHitZones || []) {
-    if (
-      ev.offsetX >= z.x1 && ev.offsetX <= z.x2 &&
-      ev.offsetY >= z.y1 && ev.offsetY <= z.y2
-    ) {
-      chart.$dragNote = z.note;
-      setZoomSuspended(true);
-      return;
-    }
-  }
-});
-
-canvas.addEventListener("mousemove", ev => {
-  if (!chart.$dragNote) return;
-  const sX = chart.scales.x;
-  const sY = chart.scales.y;
-  chart.$dragNote.x = sX.getValueForPixel(ev.offsetX);
-  chart.$dragNote.y = sY.getValueForPixel(ev.offsetY);
-  chart.update("none");
-});
-
-canvas.addEventListener("mouseup", () => {
-  if (!chart.$dragNote) return;
-  chart.$dragNote = null;
-  setZoomSuspended(false);
-  chart.$justDragged = true;
-});
-
-
 
    
-
-// === MODE MOYENNE (temporaire, sans sauvegarde) ===
+// === Gestion clic sur une note existante ===
 canvas.addEventListener("click", (ev) => {
-  if (!avgMode || !chart) return;
 
-  const rect = canvas.getBoundingClientRect();
-  const xPix = ev.clientX - rect.left;
+  // 🚫 Si on est en mode ajout de note → on sort
+  if (chart.$noteMode) return;
+  
+  // 🚫 Si le mode moyenne est inactif, on sort
+  if (!avgMode) return;
 
-  const pts = chart.getElementsAtEventForMode(ev, "nearest", { intersect:false }, true);
-  if (!pts?.length) {
-    showToast("⚠️ Clique sur un point de la courbe.");
+  ev.stopPropagation();
+  ev.preventDefault();
+
+  if (!chart) return;
+
+  const pts = chart.getElementsAtEventForMode(ev, "nearest", { intersect: false }, true);
+  if (!pts || !pts.length) {
+    showToast("⚠️ Clique sur un point existant.");
     return;
   }
 
   const el = pts[0];
-  const dsIndex = el.datasetIndex;
-  const xScale = chart.scales.x;
-  const xValue = xScale.getValueForPixel(xPix);
+  const ds = chart.data.datasets[el.datasetIndex];
+  const point = ds.data[el.index];
+  const curveId = ds.id; // identifiant stable
 
-  // === 1er clic ===
-  if (!avgStart) {
-    avgStart = { dsIndex, x: xValue };
-
-    // ➤ PETIT +1px d'épaisseur
-    chart.data.datasets[dsIndex].borderWidth = 3;
-    chart.update("none");
-    showToast("🟢 Premier point OK — clique sur un second point");
+  // 🟢 Premier clic
+  if (avgState === "first") {
+    avgStart = { id: curveId, x: point.x };
+    avgState = "second";
+    showToast(`🟡 Premier point sélectionné sur "${curveId}". Choisis le second.`);
     return;
   }
 
-  // === 2ème clic ===
-  avgMode = false;
+  // 🟢 Deuxième clic
+  if (avgState === "second") {
+    if (curveId !== avgStart.id) {
+      showToast("❗ Les deux points doivent être sur la même courbe.");
+      resetAvgCycle();
+      return;
+    }
 
-  if (dsIndex !== avgStart.dsIndex) {
-    showToast("❗️ Les deux points doivent être sur la même courbe.");
-    chart.data.datasets[avgStart.dsIndex].borderWidth = 2;
-    chart.update("none");
-    avgStart = null;
-    return;
+    const min = Math.min(avgStart.x, point.x);
+    const max = Math.max(avgStart.x, point.x);
+    const dataset = chart.data.datasets.find(d => d.id === curveId);
+    if (!dataset) {
+      showToast("❗ Courbe introuvable.");
+      resetAvgCycle();
+      return;
+    }
+
+    const ptsAvg = dataset.data.filter(p => p.x >= min && p.x <= max);
+    if (!ptsAvg.length) {
+      showToast("❗ Aucun point entre ces deux positions.");
+      resetAvgCycle();
+      return;
+    }
+
+    const avg = ptsAvg.reduce((s, p) => s + p.y, 0) / ptsAvg.length;
+    createAverageNote(curveId, min, max, avg);
+
+    showToast(`📐 Moyenne : ${avg.toFixed(2)}`);
+
+    // 🔹 reset complet immédiatement après affichage
+    resetAvgCycle();
+
   }
 
-  const ds = chart.data.datasets[dsIndex].data;
-  const min = Math.min(avgStart.x, xValue);
-  const max = Math.max(avgStart.x, xValue);
-  const ptsAvg = ds.filter(p => p.x >= min && p.x <= max);
+  // === DÉTECTION DES NOTES CLASSIQUES ===
+  let nearest = null;
+  let minDist = 18;
 
-  if (!ptsAvg?.length) {
-    showToast("⚠️ Aucun point dans cette plage.");
-    chart.data.datasets[avgStart.dsIndex].borderWidth = 2;
-    chart.update("none");
-    avgStart = null;
-    return;
+  for (const n of notesData) {
+    if (n.status !== "active") continue;
+    const x = xScale.getPixelForValue(n.x);
+    const y = yScale.getPixelForValue(n.y);
+    const d = Math.hypot(x - xClick, y - yClick);
+    if (d < minDist) {
+      nearest = n;
+      minDist = d;
+    }
   }
 
-  const avg = ptsAvg.reduce((s,p)=>s+p.y,0) / ptsAvg.length;
-  chart.data.datasets[dsIndex].borderWidth = 2;
-
-  drawTempAvgLine(dsIndex, min, max, avg);
-  chart.update("none");
-
-  showToast(`📌 Moyenne = ${avg.toFixed(2)}`);
-  avgStart = null;
+  if (nearest) {
+    showNotePopup(nearest);
+  }
 });
 
 
+// === DRAG NOTES ===
+canvas.addEventListener("mousedown",(ev)=>{
+  if (!notesData.length) return;
+  const rect = canvas.getBoundingClientRect();
+  const xClick = ev.clientX - rect.left;
+  const yClick = ev.clientY - rect.top;
+
+  for (const z of chart.$noteHitZones || []) {
+    if (
+      xClick>=z.x1 && xClick<=z.x2 &&
+      yClick>=z.y1 && yClick<=z.y2
+    ) {
+chart.$draggingNote = z.note;
+setZoomSuspended(true); // 🧩 suspend le zoom/pan pendant le drag
+return;
+
+    }
+  }
+});
+
+canvas.addEventListener("mousemove",(ev)=>{
+  if (!chart.$draggingNote) return;
+  const rect = canvas.getBoundingClientRect();
+  const xPix = ev.clientX-rect.left;
+  const yPix = ev.clientY-rect.top;
+  const xScale = chart.scales.x;
+  const yScale = chart.scales.y;
+
+  chart.$draggingNote.x = xScale.getValueForPixel(xPix);
+  chart.$draggingNote.y = yScale.getValueForPixel(yPix);
+  chart.$justDragged = true;
+
+  chart.update('none');
+});
+
+canvas.addEventListener("mouseup", async () => {
+  if (chart.$draggingNote) {
+    const n = chart.$draggingNote;
+    chart.$draggingNote = null;
+    setZoomSuspended(false); // 🧩 réactive le zoom/pan une fois lâché
+
+    try {
+      // 🔹 envoi des nouvelles coordonnées au script Google
+      const resp = await fetch(
+        "https://script.google.com/macros/s/AKfycbz9zcweeyv7GpC4ZCLnw57uVvuHEOWEmfbvnLHVaqZ8Php179viedbf7PX8Vmi8HhTX7Q/exec",
+        {
+          method: "POST",
+          headers: { "Content-Type": "application/x-www-form-urlencoded" },
+          body: new URLSearchParams({
+            status: "update",
+            folderId: localStorage.getItem("lastFolderId"),
+            csvName: baseFileName,
+            createdAt: n.createdAt,
+            x: n.x,
+            y: n.y,
+            color: n.color || colorFromAuthor(n.author || "Anonyme")
+          })
+        }
+      );
+
+      console.log("📤 Position mise à jour :", await resp.text());
+      showToast("📍 Position mise à jour !");
+    } catch (err) {
+      console.error("⚠️ Erreur MAJ position :", err);
+      showToast("❌ Erreur mise à jour");
+    }
+  }
+});
+
+
+ 
+
+
+  // Nettoyage complet du mode moyenne à chaque redessin
+  notesData = notesData.filter(n => n.type !== "avg");
+  resetAvgCycle();
+
+// === Réattacher le listener d’ajout de note sur le nouveau canvas ===
+const noteAdder = (ev) => {
+  if (!chart || !chart.$noteMode) return;
+
+  const rect = chart.canvas.getBoundingClientRect();
+  const xPix = ev.clientX - rect.left;
+  const yPix = ev.clientY - rect.top;
+
+  const xScale = chart.scales.x;
+  const yScale = chart.scales.y;
+
+  const xValue = xScale.getValueForPixel(xPix);
+  const yValue = yScale.getValueForPixel(yPix);
+  clickedPoint = { x: xValue, y: yValue };
+  chart.$noteMode = false;
+
+  // petit effet visuel
+  const ping = document.createElement("div");
+  Object.assign(ping.style, {
+    position: "absolute",
+    left: rect.left + xPix - 10 + "px",
+    top: rect.top + yPix - 10 + "px",
+    width: "20px",
+    height: "20px",
+    borderRadius: "50%",
+    background: "rgba(255,112,67,0.6)",
+    transform: "scale(0.5)",
+    opacity: "1",
+    pointerEvents: "none",
+    zIndex: "2000",
+    transition: "transform 0.6s ease-out, opacity 0.8s ease-out"
+  });
+  document.body.appendChild(ping);
+  requestAnimationFrame(() => {
+    ping.style.transform = "scale(2)";
+    ping.style.opacity = "0";
+  });
+  setTimeout(() => ping.remove(), 900);
+
+  // ouverture de la popup
+  coordsDisplay.textContent = `📍 X: ${new Date(xValue).toLocaleString()} | Y: ${yValue.toFixed(2)}`;
+  popup.classList.add("active");
+  txt.value = "";
+  status.textContent = "";
+  txt.focus();
+};
+
+// 🔁 rattachement sur le canvas fraîchement recréé
+chart.canvas.addEventListener("click", noteAdder);
 
    
   chart.update();
   applyAdaptiveTicks();
+   resetAvgCycle();
+
 }
 
 
@@ -1506,13 +1778,15 @@ canvas.addEventListener("click", (ev) => {
   document.getElementById('backBtn').onclick=()=>window.close();
 
   // Auto-affichage du graphique dès qu'une case Y est cochée/décochée
-  document.getElementById("yColumnsContainer").addEventListener("change", () => {
-    currentX = document.getElementById('xColumn').value;
-    currentY = Array.from(document.querySelectorAll("#yColumnsContainer input:checked")).map(cb => cb.value);
-    if (currentY.length) {
-      drawChart();
-    }
-  });
+document.getElementById("yColumnsContainer").addEventListener("change", () => {
+  resetAvgCycle(); // 🧹 Réinitialiser le mode moyenne proprement à chaque changement de courbe
+  currentX = document.getElementById('xColumn').value;
+  currentY = Array.from(document.querySelectorAll("#yColumnsContainer input:checked")).map(cb => cb.value);
+  if (currentY.length) {
+    drawChart();
+  }
+});
+
 
   // Ctrl+clic → changer la couleur du dataset le plus proche
   const colorPickerEl = document.getElementById('colorPicker');
@@ -1958,10 +2232,17 @@ pdf.addImage(
 // ======================= MODE MOYENNE =======================
 
 document.getElementById("avgModeBtn").onclick = () => {
-  avgMode = true;
+  if (!chart) return;
+
+  avgMode = true;       // <--- activation
+  avgState = "first";
   avgStart = null;
-  showToast("👉 Sélectionne deux points sur la même courbe.");
+
+  highlightAvgBtn(true);
+  showToast("🟢 Sélectionne le PREMIER point sur une courbe.");
 };
+
+
 
     
 
@@ -2066,63 +2347,6 @@ const waitForChart = setInterval(() => {
     }
   })();
 
-// === TRAIT de MOYENNE TEMPORAIRE ===
-function drawTempAvgLine(dsIndex, x1, x2, avgValue) {
-  if (!chart) return;
-
-  // On détruit l’ancien si existant
-  delete chart.options.plugins.tempAvg;
-
-  chart.options.plugins.tempAvg = {
-    id: "tempAvg",
-    afterDatasetsDraw(c) {
-      const { ctx, scales:{x,y} } = c;
-
-      const px1 = x.getPixelForValue(x1);
-      const px2 = x.getPixelForValue(x2);
-      const py  = y.getPixelForValue(avgValue);
-
-      ctx.save();
-
-      // ===== TRAIT HORIZONTAL =====
-      ctx.strokeStyle = "#4CAF50";    // vert
-      ctx.lineWidth = 2;
-      ctx.beginPath();
-      ctx.moveTo(px1, py);
-      ctx.lineTo(px2, py);
-      ctx.stroke();
-
-      // ===== LABEL =====
-      const txt = `AVG ${avgValue.toFixed(2)}`;
-      ctx.font = "12px sans-serif";
-      const w = ctx.measureText(txt).width + 12;
-      const h = 20;
-      const rx = (px1 + px2)/2 - w/2;
-      const ry = py - 28;
-
-      ctx.fillStyle = "#3d8e43";  // vert foncé
-      ctx.roundRect(rx, ry, w, h, 6);
-      ctx.fill();
-
-      ctx.fillStyle = "#fff";
-      ctx.textAlign = "center";
-      ctx.textBaseline = "middle";
-      ctx.fillText(txt, (px1 + px2)/2, ry + h/2);
-
-      ctx.restore();
-    }
-  };
-
-  chart.update("none");
-}
-
-
-  // — On remplace les anciens si existants
-  chart.options.plugins.avgTemp = layer;
-  chart.update();
-}
-
-
 
 
     
@@ -2174,55 +2398,9 @@ noteBtn.addEventListener("click", () => {
 });
 
 
-// 🟢 Étape 2 : clic libre sur le graphe pour définir le point de note + effet visuel
-document.getElementById("myChart").addEventListener("click", (ev) => {
-  if (!chart || !chart.$noteMode) return;
 
-  const rect = chart.canvas.getBoundingClientRect();
-  const xPix = ev.clientX - rect.left;
-  const yPix = ev.clientY - rect.top;
 
-  const xScale = chart.scales.x;
-  const yScale = chart.scales.y;
 
-  // Conversion pixels → valeurs logiques du graphe
-  const xValue = xScale.getValueForPixel(xPix);
-  const yValue = yScale.getValueForPixel(yPix);
-  clickedPoint = { x: xValue, y: yValue };
-  chart.$noteMode = false;
-
-  // 💫 Crée un petit effet de "ping" visuel sur le canvas
-  const ping = document.createElement("div");
-  Object.assign(ping.style, {
-    position: "absolute",
-    left: rect.left + xPix - 10 + "px",
-    top: rect.top + yPix - 10 + "px",
-    width: "20px",
-    height: "20px",
-    borderRadius: "50%",
-    background: "rgba(255,112,67,0.6)", // orange léger
-    transform: "scale(0.5)",
-    opacity: "1",
-    pointerEvents: "none",
-    zIndex: "2000",
-    transition: "transform 0.6s ease-out, opacity 0.8s ease-out"
-  });
-  document.body.appendChild(ping);
-
-  requestAnimationFrame(() => {
-    ping.style.transform = "scale(2)";
-    ping.style.opacity = "0";
-  });
-
-  setTimeout(() => ping.remove(), 900);
-
-  // 🗒️ Ouvre la popup de saisie
-  coordsDisplay.textContent = `📍 X: ${new Date(xValue).toLocaleString()} | Y: ${yValue.toFixed(2)}`;
-  popup.classList.add("active");
-  txt.value = "";
-  status.textContent = "";
-  txt.focus();
-});
 
 
 // 🟢 Étape 3 : annuler la saisie
@@ -2306,6 +2484,28 @@ document.getElementById("saveNoteBtn").addEventListener("click", async () => {
 
 /* ===================== MOYENNES EN NOTES ===================== */
 
+function createAverageNote(label, x1, x2, avg) {
+  const id = crypto.randomUUID();
+  const createdAt = new Date().toISOString();
+
+  const noteObj = {
+    id,
+    type: "avg",
+    dataset: label,   // <— l’identité de la courbe
+    x1,
+    x2,
+    avg,
+    color: "#0aa6e8",
+    createdAt,
+    status: "active"
+  };
+
+  notesData.push(noteObj);
+  if (chart) chart.update("none");
+}
+
+
+
 
 
 
@@ -2338,8 +2538,7 @@ popup.innerHTML = `
       <input type="color" id="noteColorEdit" value="${note.color || colorFromAuthor(note.author || "Anonyme")}">
     </label>
     <hr>
-   <textarea id="noteTextEdit" style="width:100%;height:120px;">${note.note}</textarea>
-
+    <p style="white-space:pre-wrap;">${note.text || note.note}</p>
     <div style="text-align:right;margin-top:10px;display:flex;gap:6px;justify-content:flex-end;">
       <button id="updateNoteBtn" style="background:#1976d2;color:white;border:none;border-radius:6px;padding:6px 12px;">Mettre à jour</button>
       <button id="deleteNoteBtn" style="background:#d84315;color:white;border:none;border-radius:6px;padding:6px 12px;">Supprimer</button>
@@ -2428,6 +2627,7 @@ body: new URLSearchParams({
 
   };
 }
+
 
 // === 📢 Petit système de notification flottante (remplace alert) ===
 function showToast(message, duration = 4000) {
@@ -2552,6 +2752,22 @@ function showConfirm(message, onConfirm) {
   
 </body>
 </html>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
