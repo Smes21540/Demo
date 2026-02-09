@@ -87,7 +87,14 @@ body{
 
 
 /* Main */
-#main{flex:1;padding:10px 20px;display:flex;flex-direction:column;overflow:hidden;}
+#main{
+  flex:1;
+  padding:10px 20px;
+  display:flex;
+  flex-direction:column;
+  overflow:hidden;
+  position:relative; /* ✅ nécessaire pour le centrage */
+}
 .header{display:flex;align-items:center;justify-content:center;position:relative;margin-bottom:15px;}
 .header .logo{height:60px;width:auto;}
 #fileNameContainer{position:absolute;right:0;top:0;text-align:right;}
@@ -586,8 +593,137 @@ body[data-theme="orange"] #smes-footer-bg {
 }
 
 
+/* === Campagnes (boutons auto 2024/2025...) === */
+.campaign-box{
+  display:flex;
+  flex-direction:column;
+  gap:8px;
+  padding:10px 12px;
+
+  /* 🔁 Bordure pleine, propre */
+  border:2px solid var(--accent);
+
+  border-radius:12px;
+
+  /* Fond plus net */
+  background: linear-gradient(
+    180deg,
+    rgba(255,255,255,0.95),
+    rgba(255,245,240,0.9)
+  );
+
+  /* Légère profondeur */
+  box-shadow: 0 2px 8px rgba(0,0,0,0.12);
+}
 
 
+.campaign-title{
+  font-size:12px;
+  font-weight:700;
+  color: var(--accent-darker);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.campaign-buttons{
+  display:flex;
+  flex-direction:column; /* ✅ un en dessous de l'autre */
+  gap:6px;
+}
+
+.campaign-btn{
+  background: linear-gradient(180deg, var(--accent-muted), #ffffff);
+  border: 2px solid var(--accent);
+  color: var(--accent-darker);
+  font-weight: 800;
+  padding: 6px 10px;
+  border-radius: 10px;
+  cursor: pointer;
+  font-size: 13px;
+  text-align: left;
+  transition: transform .15s ease, filter .15s ease;
+}
+
+.campaign-btn:hover{
+  transform: scale(1.02);
+  filter: brightness(1.02);
+}
+
+/* ✅ Campagne sélectionnée : effet beaucoup plus visible */
+.campaign-btn.active{
+  background: linear-gradient(180deg, var(--accent), var(--accent-darker));
+  border: 3px solid var(--danger);
+  outline: 1px solid #000;      /* ✅ trait noir 1px autour */
+  outline-offset: 0;            /* collé au bouton */
+  color: var(--accent-contrast);
+
+  box-shadow:
+    0 0 0 3px rgba(255,255,255,0.6),
+    0 8px 16px rgba(0,0,0,0.25),
+    0 0 12px rgba(255,112,67,0.6);
+
+  transform: scale(1.03);
+  filter: saturate(1.2) contrast(1.1);
+}
+
+
+
+/* === Tuiles “grosses icônes” (centrées dans la page) === */
+.site-tiles{
+  display:grid;
+  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+  gap:14px;
+
+  /* ✅ centrage horizontal + vertical */
+  position:absolute;
+  left:50%;
+  top:50%;
+  transform:translate(-50%,-50%);
+
+  /* ✅ largeur propre + scroll si besoin */
+  width:min(900px, calc(100% - 20px));
+  max-height:calc(100% - 20px);
+  overflow:auto;
+
+  padding:8px;
+  margin:0;
+}
+
+
+.site-tile{
+  background: var(--panel);
+  border: 2px solid var(--accent-muted);
+  border-radius: 14px;
+  box-shadow: 0 4px 12px var(--shadow);
+  padding: 14px 12px;
+  cursor: pointer;
+  transition: transform .15s ease, filter .15s ease, border-color .15s ease;
+  display:flex;
+  flex-direction:column;
+  align-items:center;
+  justify-content:center;
+  min-height: 120px;
+  user-select:none;
+}
+
+.site-tile:hover{
+  transform: scale(1.02);
+  filter: brightness(1.02);
+  border-color: var(--accent);
+}
+
+.site-tile .icon{
+  font-size: 44px;
+  line-height: 1;
+  margin-bottom: 10px;
+}
+
+.site-tile .label{
+  font-weight: 800;
+  color: var(--accent-darker);
+  text-align:center;
+  word-break: break-word;
+}
 
 
 
@@ -629,25 +765,27 @@ body[data-theme="orange"] #smes-footer-bg {
     </div>
   </div>
 
-  <div class="controls">
-    Filtrer par date : 
-    <div class="date-field"><span id="iconStart">📅</span><input type="date" id="startDate"></div>
-    à
-    <div class="date-field"><span id="iconEnd">📅</span><input type="date" id="endDate"></div>
-    <button onclick="applyFilter()">Filtrer</button>
-    <button onclick="clearFilter()">Tout afficher</button>
-    <button id="downloadFolderBtn">Télécharger le dossier</button>
-<button id="exportCsvBtn" style="display:none;" title="Voir les barres graphiques de consommation par jour">Graphique</button>
-<button id="exportExcelGazBtn" style="display:none;" title="Exporter les données en Excel (kWh, m³, durée, tonnage)">Export Excel</button>
+<div class="controls">
+  Filtrer par date : 
+  <div class="date-field"><span id="iconStart">📅</span><input type="date" id="startDate"></div>
+  à
+  <div class="date-field"><span id="iconEnd">📅</span><input type="date" id="endDate"></div>
 
-
-
-
-
-
-    
-
+  <!-- ✅ Boutons campagne auto (2024/2025...) -->
+  <div id="campaignBox" class="campaign-box" style="display:none;">
+    <div class="campaign-title">Campagnes de séchage :</div>
+    <div id="campaignButtons" class="campaign-buttons"></div>
   </div>
+
+  <button onclick="clearFilter()">Tout afficher</button>
+  <button id="downloadFolderBtn">Télécharger le dossier</button>
+  <button id="exportCsvBtn" style="display:none;" title="Voir les barres graphiques de consommation par jour">Graphique</button>
+  <button id="exportExcelGazBtn" style="display:none;" title="Exporter les données en Excel (kWh, m³, durée, tonnage)">Export Excel</button>
+</div>
+
+<!-- ✅ Tuiles dossiers (page principale) -->
+<div id="siteTiles" class="site-tiles" style="display:none;"></div>
+
 
   <div id="tableWrapper">
     <div id="tableContainer">
@@ -739,6 +877,49 @@ let storedNotes = {};
 
 
 /* ----------- Config personnalisée ----------- */
+
+/* --- Descriptions dossiers (tooltip simple) --- */
+const FOLDER_DESCRIPTIONS = [
+  { key: "traça_temp", desc: "Traçabilité valeurs sondes, consignes, réglages, consommation… Courbes, plan de sondes, etc." },
+  { key: "traca_temp", desc: "Traçabilité valeurs sondes, consignes, réglages, consommation… Courbes, plan de sondes, etc." },
+  { key: "historique", desc: "Historique de fonctionnement, réglages, événements journaliers…" },
+  { key: "echantillonnage", desc: "Feuille de prises d'échantillon journalière (Humidité, réglages, etc.)." },
+  { key: "consommation gaz", desc: "Consommation gaz journalière, conversion kWh, temps de séchage, cumul tonnage…" },
+];
+
+function getFolderDescription(name){
+  const n = (name || "").toLowerCase();
+  const hit = FOLDER_DESCRIPTIONS.find(x => n.includes(x.key));
+  return hit ? hit.desc : "";
+}
+
+function applyFolderTooltip(el, folderName){
+  if (!el) return;
+
+  const desc = getFolderDescription(folderName);
+  if (desc){
+    el.title = desc; // tooltip natif
+  }
+}
+
+
+/* --- Icônes dossiers selon type --- */
+function getFolderIcon(name){
+  const n = (name || "").toLowerCase();
+
+  if (n.includes("gaz")) return "⛽";
+  if (n.includes("echantillonnage")) return "📖";
+  if (n.includes("capture")) return "🖼️";
+  if (n.includes("rapport")) return "📄";
+  if (n.includes("historique")) return "🗂️";
+  if (n.includes("traça_temp") || n.includes("traca_temp")) return "📈";
+
+  return "📒";
+}
+
+
+
+  
 const FLAME_THRESHOLD = 40.0;   // seuil déclencheur de la flamme 🔥
 
 /* ----------- État ----------- */
@@ -747,6 +928,151 @@ let filterStartDate="", filterEndDate="";
 let themeMenuTimer;
 let cancelScan = false; // 🛑 permet d’arrêter le scan si on clique ailleurs
 
+
+
+/* ===========================
+   === Campagnes (2024/2025...)
+   =========================== */
+let activeCampaignKey = ""; // ex: "2025"
+let campaignBySite = {};    // cache: { siteId: { "2025": {start:"YYYY-MM-DD", end:"YYYY-MM-DD"} } }
+
+function parseCampaignDateToISO(s){
+  // accepte "09/09/2025" (dd/mm/yyyy)
+  const txt = (s || "").trim();
+  const m = txt.match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+  if(!m) return "";
+  const dd = m[1], mm = m[2], yyyy = m[3];
+  return `${yyyy}-${mm}-${dd}`;
+}
+
+async function loadCampaignFilesForSite(siteId){
+  if (!siteId) return {};
+  if (campaignBySite[siteId]) return campaignBySite[siteId];
+
+  const files = await fetchFolderContents(siteId);
+
+  // accepte tout fichier qui CONTIENT une année et finit par .json/.csv
+  // ex: "2024.json", "🌽2025.json", "2024 Roulin 1🌻.json"
+  const campFiles = files.filter(f =>
+    /\d{4}.*\.(json|csv)$/i.test(f.name)
+  );
+
+
+  if (!campFiles.length){
+    campaignBySite[siteId] = {};
+    return {};
+  }
+
+  const out = {}; // { "2025": {start, end} }
+
+  await Promise.all(campFiles.map(async (f) => {
+    const key = (f.name || "").replace(/\.(json|csv)$/i, "").trim();
+
+    // année = sert au tri (on prend la 1ère année trouvée dans le nom)
+    const mYear = (f.name || "").match(/(\d{4})/);
+    const year = mYear ? mYear[1] : "0000";
+
+
+    try{
+      const res = await fetch(
+        `https://smes21540.netlify.app/.netlify/functions/drive?id=${f.id}&name=${encodeURIComponent(f.name)}&site=Smes_Acces`
+      );
+      if(!res.ok) return;
+
+      const text = await res.text();
+
+      // on lit 2 lignes (peu importe json/csv: tu as dit "2 lignes")
+      const lines = text.split(/\r?\n/).map(l => l.trim()).filter(Boolean);
+      if(lines.length < 2) return;
+
+      const startISO = parseCampaignDateToISO(lines[0]);
+      const endISO   = parseCampaignDateToISO(lines[1]);
+      if(!startISO || !endISO) return;
+
+      out[key] = { start: startISO, end: endISO, fileName: f.name };
+
+    } catch(e){
+      console.warn("[CAMPAGNE] Erreur lecture", f.name, e);
+    }
+  }));
+
+  campaignBySite[siteId] = out;
+  return out;
+}
+
+function renderCampaignButtons(campaigns){
+  const box = document.getElementById("campaignBox");
+  const wrap = document.getElementById("campaignButtons");
+  if(!box || !wrap) return;
+
+  wrap.innerHTML = "";
+    const keys = Object.keys(campaigns || {}).sort((a,b)=>{
+    const ya = campaigns[a]?.year || "0000";
+    const yb = campaigns[b]?.year || "0000";
+    if (ya !== yb) return yb.localeCompare(ya); // année desc
+    return a.localeCompare(b, 'fr', { sensitivity:'base' }); // puis nom
+  });
+
+
+  if(!keys.length){
+    box.style.display = "none";
+    activeCampaignKey = "";
+    return;
+  }
+
+  box.style.display = "flex";
+
+  keys.forEach(key => {
+    const c = campaigns[key];
+    const btn = document.createElement("button");
+    btn.className = "campaign-btn" + (activeCampaignKey === key ? " active" : "");
+    // Nom brut depuis le fichier (sans extension)
+let label = (c.fileName || key)
+  .replace(/\.(json|csv)$/i, "")
+  .trim();
+
+btn.textContent =
+  `Campagne ${label} (${c.start.split("-").reverse().join("/")} → ${c.end.split("-").reverse().join("/")})`;
+
+
+    btn.onclick = async () => {
+      const isSame = (activeCampaignKey === key);
+      activeCampaignKey = isSame ? "" : key;
+
+      document.querySelectorAll(".campaign-btn").forEach(b => b.classList.remove("active"));
+      if(!isSame) btn.classList.add("active");
+
+      if (isSame) return; // si on re-clique la même, on juste désactive visuellement
+
+      // ⚠️ ton flatpickr onChange déclenche refreshCurrentFolder.
+      // On désactive temporairement pour éviter 2 refreshs.
+      suppressAutoFilter = true;
+      try{
+        fpStart?.setDate(c.start, true);
+        fpEnd?.setDate(c.end, true);
+      } finally {
+        suppressAutoFilter = false;
+      }
+
+      // ✅ on pousse les filtres + refresh
+      filterStartDate = c.start;
+      filterEndDate   = c.end;
+
+      await refreshCurrentFolder();
+    };
+
+    wrap.appendChild(btn);
+  });
+}
+
+async function refreshCampaignUIForSite(siteId){
+  const campaigns = await loadCampaignFilesForSite(siteId);
+  renderCampaignButtons(campaigns);
+}
+
+
+
+  
 async function getTonnageForDate(siteRoot, dateStr) {
 
     console.log("=== TONNAGE DEBUG ===");
@@ -900,6 +1226,16 @@ const spinner=document.getElementById('spinner');
 function showSpinner(){spinner.style.display='block';}
 function hideSpinner(){spinner.style.display='none';}
 
+function getSiteRootLi(li){
+  let cur = li;
+  while (cur && cur.parentElement && cur.parentElement.closest("li")) {
+    cur = cur.parentElement.closest("li");
+  }
+  return cur; // dossier racine du site
+}
+
+
+
 function updateNetworkStatus(){
   document.getElementById("netAlert").style.display = navigator.onLine ? "none" : "block";
 }
@@ -967,61 +1303,66 @@ async function fetchFolderContents(folderId){
 
 
 async function loadRootFolders(){
-  const files = await fetchFolderContents(ROOT_FOLDER_ID);
-  const rootUL = document.getElementById('folderTree');
-  rootUL.innerHTML = '';
+const files = await fetchFolderContents(ROOT_FOLDER_ID);
+const rootUL = document.getElementById('folderTree');
+rootUL.innerHTML = '';
 
 // 🔒 Cacher les filtres quand on revient à la racine
 document.querySelector(".controls").style.display = "none";
 
+const cb = document.getElementById("campaignBox");
+if (cb) cb.style.display = "none";
+activeCampaignKey = "";
 
-  files
+// ✅ Liste dossiers racine
+const rootFolders = files
   .filter(f => f.mimeType === 'application/vnd.google-apps.folder')
-  .sort((a,b) => a.name.localeCompare(b.name, 'fr', { sensitivity:'base' }))
-  .forEach(f => {
+  .sort((a,b) => a.name.localeCompare(b.name, 'fr', { sensitivity:'base' }));
 
-    const li = document.createElement('li'); 
-    li.dataset.id = f.id;
+// ✅ Remplit les tuiles à droite (uniquement si non vide)
+renderRootTiles(rootFolders);
 
-    const toggle = document.createElement('span'); 
-    toggle.className = 'folder-toggle'; 
-    toggle.textContent = '';
-    toggle.onclick = () => toggleFolder(li);
+// ✅ Remplit la sidebar comme avant
+rootFolders.forEach(f => {
+  const li = document.createElement('li');
+  li.dataset.id = f.id;
 
-const span = document.createElement('span');
-span.className = 'folder-name';
+  const toggle = document.createElement('span');
+  toggle.className = 'folder-toggle';
+  toggle.textContent = '';
+  toggle.onclick = (e) => toggleFolder(li, e);
 
-const lowerName = f.name.toLowerCase();
 
-if (lowerName.includes("gaz")) {
-  span.innerHTML = `⛽ ${f.name}`;
-} else if (lowerName.includes("echantillonnage")) {
-  span.innerHTML = `📖 ${f.name}`;
-} else if (lowerName.includes("capture")) {
-  span.innerHTML = `🖼️ ${f.name}`;
-} else if (lowerName.includes("rapport")) {
-  span.innerHTML = `📄 ${f.name}`;
-} else if (lowerName.includes("historique")) {
-  span.innerHTML = `🗂️ ${f.name}`;
-} else if (lowerName.includes("traça_temp") || lowerName.includes("traca_temp")) {
-  span.innerHTML = `📈 ${f.name}`;
-} else {
-  span.textContent = f.name;
-}
+  const span = document.createElement('span');
+  span.className = 'folder-name';
+
+const icon = getFolderIcon(f.name);
+span.innerHTML = `${icon} ${f.name}`;
+
+applyFolderTooltip(span, f.name);
 
 
 
 
-span.onclick = (e) => loadFolderFilesOnClick(li, e);
+  
+
+span.onclick = async (e) => {
+  e?.stopPropagation?.();
+
+  // ✅ s'assure que la zone contrôles est visible dès clic sur le site
+  const controls = document.querySelector(".controls");
+  if (controls) controls.style.display = "flex";
+
+  await openSiteAndShowTiles(li.dataset.id, (span.textContent || "").trim());
+};
 
 
 
+  li.appendChild(toggle);
+  li.appendChild(span);
+  rootUL.appendChild(li);
+});
 
-
-    li.appendChild(toggle); 
-    li.appendChild(span); 
-    rootUL.appendChild(li);
-  });
 
   // 🔥 Vérifier automatiquement deux crans plus bas sans ouvrir visuellement
   setTimeout(async () => {
@@ -1038,86 +1379,72 @@ span.onclick = (e) => loadFolderFilesOnClick(li, e);
   }, 1000);
 }
 
-async function toggleFolder(li){
-  const toggle=li.querySelector('.folder-toggle');
-if(li.dataset.loaded==='true'){
-  const ul = li.querySelector('ul');
-  // ✅ Ne replie pas le parent si on clique un sous-dossier
-  if (!ul) return;
-  if (event && event.target && !event.target.classList.contains('folder-name')) return;
-  ul.style.display = ul.style.display === 'none' ? 'block' : 'none';
-  return;
-}
+async function toggleFolder(li, event){
 
-  toggle.textContent='…';
-  const files=await fetchFolderContents(li.dataset.id);
-  const ul=document.createElement('ul');
-  const folders = files
-  .filter(f => f.mimeType === 'application/vnd.google-apps.folder')
-  .sort((a,b) => a.name.localeCompare(b.name, 'fr', { sensitivity:'base' }));
+  // 🛡️ Anti double-clic / anti double chargement concurrent
+  if (li.dataset.loading === "true") return;
+  li.dataset.loading = "true";
 
-for (const f of folders) {
+  try {
+    const toggle = li.querySelector('.folder-toggle');
 
-    const childLi=document.createElement('li'); 
-    childLi.dataset.id=f.id;
+    if (li.dataset.loaded === 'true') {
+      const ul = li.querySelector('ul');
+      if (!ul) return;
 
-    const childToggle=document.createElement('span'); 
-    childToggle.className='folder-toggle'; 
-    childToggle.textContent='';
-    childToggle.onclick=()=>toggleFolder(childLi);
+      // ✅ Ne replie pas le parent si on clique un sous-dossier
+      if (event && event.target && !event.target.classList.contains('folder-name')) return;
 
-const span = document.createElement('span');
-span.className = 'folder-name';
-
-const lowerName = f.name.toLowerCase();
-
-if (lowerName.includes("gaz")) {
-  span.innerHTML = `⛽ ${f.name}`;
-} else if (lowerName.includes("echantillonnage")) {
-  span.innerHTML = `📖 ${f.name}`;
-} else if (lowerName.includes("capture")) {
-  span.innerHTML = `🖼️ ${f.name}`;
-} else if (lowerName.includes("rapport")) {
-  span.innerHTML = `📄 ${f.name}`;
-} else if (lowerName.includes("historique")) {
-  span.innerHTML = `🗂️ ${f.name}`;
-} else if (lowerName.includes("traça_temp") || lowerName.includes("traca_temp")) {
-  span.innerHTML = `📈 ${f.name}`;
-} else {
-  span.textContent = f.name;
-}
-
-
-
-span.onclick = (e) => loadFolderFilesOnClick(childLi, e);
-
-
-
-    childLi.appendChild(childToggle); 
-    childLi.appendChild(span); 
-    ul.appendChild(childLi);
-
-    // ✅ Cas spécial : si le dossier est Traça_Temp → précharger Historique
-    if (f.name.toLowerCase().includes("traça_temp") || f.name.toLowerCase().includes("traca_temp")) {
-      const siblings = await fetchFolderContents(li.dataset.id);
-      const hist = siblings.find(s => s.mimeType === 'application/vnd.google-apps.folder' && s.name.toLowerCase().includes("historique"));
-      if (hist) {
-        const histFiles = await fetchFolderContents(hist.id);
-        const z3Files = histFiles.filter(ff => ff.name.toUpperCase().startsWith("Z3") && ff.name.toLowerCase().endsWith(".csv"));
-localStorage.setItem("csvZ3Files", JSON.stringify(z3Files));
-console.log("[Z3] Préchargés depuis Historique:", z3Files.length);
-showEventAlert();
-
-      }
+      ul.style.display = ul.style.display === 'none' ? 'block' : 'none';
+      return;
     }
 
-    // ✅ Vérif Temp (flamme 🔥)
-    if(f.name.includes("Temp")){ checkTraçaTempToday(li, f.id); }
+    toggle.textContent = '…';
+
+    const files = await fetchFolderContents(li.dataset.id);
+    const ul = document.createElement('ul');
+
+    const folders = files
+      .filter(f => f.mimeType === 'application/vnd.google-apps.folder')
+      .sort((a,b) => a.name.localeCompare(b.name, 'fr', { sensitivity:'base' }));
+
+    for (const f of folders) {
+      const childLi = document.createElement('li');
+      childLi.dataset.id = f.id;
+
+      const childToggle = document.createElement('span');
+      childToggle.className = 'folder-toggle';
+      childToggle.textContent = '';
+
+      // ✅ IMPORTANT: passer l’event
+      childToggle.onclick = (e) => toggleFolder(childLi, e);
+
+      const span = document.createElement('span');
+      span.className = 'folder-name';
+
+      const icon = getFolderIcon(f.name);
+      span.innerHTML = `${icon} ${f.name}`;
+      applyFolderTooltip(span, f.name);
+
+      span.onclick = (e) => loadFolderFilesOnClick(childLi, e);
+
+      childLi.appendChild(childToggle);
+      childLi.appendChild(span);
+      ul.appendChild(childLi);
+
+      // ✅ Vérif Temp (flamme 🔥)
+      if (f.name.includes("Temp")) { checkTraçaTempToday(li, f.id); }
+    }
+
+    li.appendChild(ul);
+    li.dataset.loaded = 'true';
+    toggle.textContent = '';
+
+  } finally {
+    li.dataset.loading = "false";
   }
-  li.appendChild(ul); 
-  li.dataset.loaded='true'; 
-  toggle.textContent='';
 }
+
 
 
 // Fonction utilitaire pour récupérer les sous-dossiers sans modifier l'affichage
@@ -1224,19 +1551,29 @@ const filtered = files.filter(f =>
 
 
 
-// 🧭 Détermination du site courant
-const siteLi = li.parentElement.closest("li");
-let siteId = siteLi?.dataset.id || null;
+// 🧭 Détermination du site courant (toujours la racine du site)
+const siteRootLi = getSiteRootLi(li);
+const siteId = siteRootLi?.dataset.id || null;
+
 
 if (siteId && siteId !== currentSiteId) {
+
+  // ✅ RESET filtres date dès changement de site
+  resetDateFilterUIAndState();
+  
   clearSiteHotDays();
   currentSiteId = siteId;
-  console.log(`[SITE] Changement de site → ${siteLi.querySelector(".folder-name")?.textContent}`);
+  console.log(`[SITE] Changement de site → ${siteRootLi?.querySelector(".folder-name")?.textContent}`);
 
+
+  // ✅ Campagnes (2024/2025...) depuis le dossier parent du site
+  await refreshCampaignUIForSite(siteId);
+  
 // 🔥 Lancer le scan en arrière-plan sans bloquer l'affichage
 scanSiteHotDays(siteId).then(map => {
   hotDaysMap = map;
-  console.log(`[CACHE] 🔥 ${Object.keys(hotDaysMap).length} jours chauds détectés et chargés pour ${siteLi.querySelector(".folder-name")?.textContent}`);
+  console.log(`[CACHE] 🔥 ${Object.keys(hotDaysMap).length} jours chauds détectés et chargés pour ${siteRootLi?.querySelector(".folder-name")?.textContent}`);
+
 
 // 🪄 Rafraîchir seulement les flammes dans le tableau actuel sans supprimer les notes 📝
 document.querySelectorAll('#csvTable tbody tr').forEach(tr => {
@@ -1303,6 +1640,9 @@ if (Object.keys(hotDaysMap).length > 0) {
 }
 
 async function displayFiles(files, folderName){
+
+  hideSiteTiles();
+
 
   const tbody=document.querySelector('#csvTable tbody');
   const downloadBtn=document.getElementById('downloadFolderBtn');
@@ -1836,22 +2176,63 @@ localStorage.setItem("currentFolderPath", folderPath);
 
 
 /* ----------- Filtres ----------- */
-function applyFilter(){
-  filterStartDate=document.getElementById('startDate').value;
-  filterEndDate=document.getElementById('endDate').value;
-  const active=document.querySelector('#folderTree .active-folder');
-  if(active) active.click();
-}
-function clearFilter(){
-  filterStartDate=''; filterEndDate='';
-  document.getElementById('startDate').value=''; document.getElementById('endDate').value='';
-  const active=document.querySelector('#folderTree .active-folder');
-  if(active) active.click();
+async function refreshCurrentFolder(){
+
+  const folderId = localStorage.getItem("lastFolderId");
+  if (!folderId) return;
+
+  // On retrouve le dossier actif
+  const li = document.querySelector(`#folderTree li[data-id="${folderId}"]`);
+
+  if (!li) {
+    console.warn("[FILTER] Dossier actif introuvable");
+    return;
+  }
+
+  // Recharge sans casser la sélection
+  await loadFolderFilesOnClick(li, null);
 }
 
-function getPreviewType(fileName){
-  return /\.pdf$/i.test(fileName) ? "pdf" : "image";
+
+async function applyFilter(){
+  filterStartDate = document.getElementById('startDate').value;
+  filterEndDate   = document.getElementById('endDate').value;
+
+  await refreshCurrentFolder();
 }
+
+async function clearFilter(){
+  filterStartDate = '';
+  filterEndDate   = '';
+
+  fpStart?.clear();
+  fpEnd?.clear();
+
+  // ✅ désactive campagne
+  activeCampaignKey = "";
+  document.querySelectorAll(".campaign-btn").forEach(b => b.classList.remove("active"));
+
+  const ys = document.getElementById("yearSelect");
+  if (ys) ys.value = "";
+
+  await refreshCurrentFolder();
+}
+
+function resetDateFilterUIAndState(){
+  filterStartDate = "";
+  filterEndDate = "";
+
+  fpStart?.clear();
+  fpEnd?.clear();
+
+  // retire l'affichage des champs masqués/visibles
+  document.querySelectorAll(".date-field").forEach(df => df.classList.remove("has-date"));
+
+  // reset campagne visuelle
+  activeCampaignKey = "";
+  document.querySelectorAll(".campaign-btn").forEach(b => b.classList.remove("active"));
+}
+
 
 
   
@@ -2372,6 +2753,8 @@ function markFolderWithFlame(li) {
 /* ----------- Datepickers enrichis (Flatpickr) ----------- */
 let fpStart = null;
 let fpEnd = null;
+  let suppressAutoFilter = false;
+
 
 function initDatePickers() {
   const commonOpts = {
@@ -2394,11 +2777,27 @@ function initDatePickers() {
       recolorHotDays(instance);
     },
 
-    onChange: function(selectedDates, dateStr, instance) {
-      const parent = instance.input.closest(".date-field");
-      if (dateStr) parent.classList.add("has-date");
-      else parent.classList.remove("has-date");
-    },
+onChange: async function(selectedDates, dateStr, instance) {
+
+  const parent = instance.input.closest(".date-field");
+
+  if (dateStr) parent.classList.add("has-date");
+  else parent.classList.remove("has-date");
+
+  // ✅ si on change les dates via bouton campagne → on ne déclenche pas ici
+  if (suppressAutoFilter) return;
+
+  filterStartDate = document.getElementById("startDate").value;
+  filterEndDate   = document.getElementById("endDate").value;
+
+  await refreshCurrentFolder();
+
+  const ys = document.getElementById("yearSelect");
+  if (ys) ys.value = "";
+},
+
+
+
 
 onDayCreate: function(dObj, dStr, fp, dayElem) {
   const yyyymmdd = dayElem.dateObj.getFullYear().toString() +
@@ -2776,6 +3175,175 @@ async function runWithConcurrency(tasks, limit, worker) {
   await Promise.all([...executing]);
 }
 
+
+
+// ✅ évite le crash si #yearSelect n'existe plus
+function initYearSelect(){
+  const ys = document.getElementById("yearSelect");
+  if(!ys) return;
+  // Si tu réintroduis un select un jour, tu mettras ici son initialisation.
+}
+
+const ys = document.getElementById("yearSelect");
+if (ys) ys.value = "";
+
+
+
+function showTable(){
+  const tw = document.getElementById("tableWrapper");
+  if (tw) tw.style.display = "block";
+}
+
+function hideTable(){
+  const tw = document.getElementById("tableWrapper");
+  if (tw) tw.style.display = "none";
+}
+
+function showSiteTiles(){
+  const tiles = document.getElementById("siteTiles");
+  if (tiles) tiles.style.display = "grid";
+  hideTable(); // ✅ cache le tableau → plus de colonnes vides visibles
+}
+
+function hideSiteTiles(){
+  const tiles = document.getElementById("siteTiles");
+  if (tiles) tiles.style.display = "none";
+  showTable(); // ✅ on remet le tableau dès qu'on sort des tuiles
+}
+
+
+function renderRootTiles(folders){
+  const tiles = document.getElementById("siteTiles");
+  if (!tiles) return;
+
+  tiles.innerHTML = "";
+
+  // ✅ S’il n’y a aucun dossier racine → on ne montre pas les tuiles (comme avant)
+  if (!folders || folders.length === 0){
+    hideSiteTiles();
+    return;
+  }
+
+  folders.forEach(f => {
+    const div = document.createElement("div");
+    div.className = "site-tile";
+const icon = getFolderIcon(f.name);
+
+div.innerHTML = `
+  <div class="icon">${icon}</div>
+  <div class="label">${f.name}</div>
+`;
+
+
+div.onclick = async () => {
+  // ✅ choisir un site → afficher ses dossiers en tuiles
+  await openSiteAndShowTiles(f.id, f.name);
+
+  // option: surlignage du site dans la sidebar
+  const li = document.querySelector(`#folderTree > li[data-id="${f.id}"]`);
+  if (li) {
+    document.querySelectorAll('#folderTree li span.folder-name')
+      .forEach(s => s.classList.remove('active-folder'));
+    const nameSpan = li.querySelector('span.folder-name');
+    if (nameSpan) nameSpan.classList.add('active-folder');
+    li.scrollIntoView({block:"center"});
+  }
+};
+
+
+    tiles.appendChild(div);
+  });
+
+  showSiteTiles();
+}
+
+async function renderSiteSubfolderTiles(siteId, siteName="") {
+  const tiles = document.getElementById("siteTiles");
+  if (!tiles) return;
+
+  // charge la liste des dossiers du site
+  const files = await fetchFolderContents(siteId);
+  const folders = (files || [])
+    .filter(f => f.mimeType === 'application/vnd.google-apps.folder')
+    .sort((a,b) => a.name.localeCompare(b.name, 'fr', { sensitivity:'base' }));
+
+  tiles.innerHTML = "";
+
+  // Si pas de sous-dossiers → on ne montre pas les tuiles (on laisse le flux classique)
+  if (!folders.length){
+    hideSiteTiles();           // ✅ et donc on revoit le tableau
+    return;
+  }
+
+  // petit titre au-dessus des tuiles (optionnel mais pratique)
+  const head = document.createElement("div");
+  head.style.gridColumn = "1 / -1";
+  head.style.fontWeight = "900";
+  head.style.color = "var(--accent-darker)";
+  head.style.margin = "4px 2px 10px";
+  head.textContent = siteName ? `${siteName} — Choisissez le sous dossier` : "📍 Dossiers";
+  tiles.appendChild(head);
+
+  folders.forEach(f => {
+    const div = document.createElement("div");
+    div.className = "site-tile";
+const icon = getFolderIcon(f.name);
+
+div.innerHTML = `
+  <div class="icon">${icon}</div>
+  <div class="label">${f.name}</div>
+`;
+
+
+applyFolderTooltip(div, f.name);
+
+
+    
+    div.onclick = async () => {
+      // on quitte le mode tuiles
+      hideSiteTiles();
+
+      // on essaye de retrouver le LI déjà créé par toggleFolder
+      const childLi = document.querySelector(`#folderTree li[data-id="${f.id}"]`);
+      if (childLi) {
+        await loadFolderFilesOnClick(childLi, null);
+        childLi.scrollIntoView({block:"center"});
+      } else {
+        // fallback (rare) : si le li n'existe pas, on force l'affichage du contenu
+        localStorage.setItem('lastFolderId', f.id);
+        localStorage.setItem("lastFolderPath", (siteName ? siteName + "/" : "") + f.name);
+        const files2 = await fetchFolderContents(f.id);
+        const filtered = files2.filter(x =>
+          /\.(csv|jpg|jpeg|png|gif|webp|json|pdf|mp4|webm|mov|m4v|avi|ppsx|pptx)$/i.test(x.name)
+        );
+        previewFiles = filtered.filter(x => /\.(jpg|jpeg|pdf|mp4|gif|webm|mov|m4v)$/i.test(x.name));
+        displayFiles(filtered, f.name);
+      }
+    };
+
+    tiles.appendChild(div);
+  });
+
+  showSiteTiles();
+}
+
+
+// Clique sur un site (tile ou sidebar) → ouvre l'arbre + affiche les sous-dossiers en tuiles
+async function openSiteAndShowTiles(siteId, siteName="") {
+  // ✅ on affiche les contrôles pour que la box "Campagnes" puisse apparaître
+  const controls = document.querySelector(".controls");
+  if (controls) controls.style.display = "flex";
+
+  // ✅ charge les campagnes du site TOUT DE SUITE (avant même un dossier final)
+  await refreshCampaignUIForSite(siteId);
+
+  const li = document.querySelector(`#folderTree > li[data-id="${siteId}"]`);
+  if (li) await toggleFolder(li);     // ✅ charge/affiche les sous-dossiers dans la sidebar
+
+  await renderSiteSubfolderTiles(siteId, siteName);
+}
+
+
   
 
 /* ----------- Init ----------- */
@@ -2787,8 +3355,11 @@ window.onload=()=>{
   // bouton "Télécharger le dossier" caché par défaut tant qu'aucun contenu
   document.getElementById("downloadFolderBtn").style.display="none";
 
-  loadRootFolders();
-  initDatePickers();
+loadRootFolders();
+  hideTable();
+
+initDatePickers();
+initYearSelect();
 const last = localStorage.getItem("lastFolderId");
 if (last) {
   // attendre un peu que l'arborescence soit rendue
@@ -2804,6 +3375,8 @@ if (last) {
 
 };
 
+
+  
 
 </script>
 
